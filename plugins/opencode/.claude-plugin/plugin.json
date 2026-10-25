@@ -1,0 +1,8 @@
+{
+  "name": "opencode",
+  "version": "0.1.0",
+  "description": "Delegate implementation, investigation, and restricted reviews to OpenCode agents",
+  "author": { "name": "cc-opencode contributors" },
+  "license": "MIT",
+  "keywords": ["opencode", "delegation", "agents", "review"]
+}

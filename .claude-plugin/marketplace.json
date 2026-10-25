@@ -1,0 +1,17 @@
+{
+  "name": "cc-opencode",
+  "owner": {
+    "name": "cc-opencode contributors"
+  },
+  "plugins": [
+    {
+      "name": "opencode",
+      "source": "./plugins/opencode",
+      "description": "Delegate tasks and restricted code reviews to local OpenCode agents",
+      "version": "0.1.0"
+    }
+  ],
+  "metadata": {
+    "description": "Delegate Claude Code tasks and reviews to local OpenCode agents."
+  }
+}

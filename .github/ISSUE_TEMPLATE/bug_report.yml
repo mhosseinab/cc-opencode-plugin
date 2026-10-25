@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible bridge failure
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Environment
+      description: OS, Node, OpenCode, and Claude Code versions
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Command, expected result, actual job state, and sanitized error. Do not include secrets or raw private logs.
+    validations:
+      required: true
