@@ -15,12 +15,20 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run format:check && npm test",
-    "package": "node scripts/package.mjs"
+    "package": "node scripts/package.mjs",
+    "release": "semantic-release",
+    "release:dry-run": "semantic-release --dry-run"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@semantic-release/changelog": "7.0.0",
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/git": "11.0.1",
+    "@semantic-release/github": "12.0.10",
+    "@semantic-release/release-notes-generator": "14.1.1",
     "eslint": "10.13.0",
     "globals": "17.13.0",
-    "prettier": "3.7.4"
+    "prettier": "3.7.4",
+    "semantic-release": "25.0.9"
   }
 }
