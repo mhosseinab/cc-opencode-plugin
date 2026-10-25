@@ -139,8 +139,8 @@ test('task preserves literal hostile input, records private state, and returns i
   assert.equal(out.data.status, 'completed');
   const record = JSON.parse(fs.readFileSync(f.env.FAKE_RECORD, 'utf8'));
   assert.equal(record.prompt, prompt);
-  assert.equal(record.pwd, f.root);
-  assert.equal(record.cwd, f.root);
+  assert.equal(record.pwd, fs.realpathSync(f.root));
+  assert.equal(record.cwd, fs.realpathSync(f.root));
   assert.deepEqual(record.args, [
     'run',
     '--format',
@@ -272,7 +272,7 @@ test('review captures staged, unstaged, and untracked evidence with restrictive 
   );
   const subdir = path.join(f.root, 'subdir');
   fs.mkdirSync(subdir);
-  assert.equal(workspace(subdir), f.root);
+  assert.equal(workspace(subdir), fs.realpathSync(f.root));
 });
 
 test(
