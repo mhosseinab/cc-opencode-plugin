@@ -18,5 +18,4 @@ The process tests exercise literal hostile prompt strings, malformed JSONL, spli
 
 Not verified here: a signed-in interactive Claude command flow, external/paid provider authentication and model quality, macOS, WSL2, marketplace installation from a published GitHub repository, or remote GitHub Actions execution. CI and the release checklist cover those remaining acceptance steps. The project is an unreleased 0.1.0 candidate, not a claim of a completed production rollout.
 
-
 On 2026-11-12, the missing release configuration/helpers were restored against the current GitHub main branch. All 24 tests passed with the real OpenCode local-provider test enabled, lint/format checks passed, and both manifests passed strict validation. The release integration test now exercises a simulated GitHub pull-request environment while isolating the fixture Git branch. Live GitHub release status is recorded by the Actions run rather than asserted here.
