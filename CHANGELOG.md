@@ -1,3 +1,15 @@
+# 1.0.0 (2026-11-12)
+
+### Bug Fixes
+
+- **ci:** restore release automation and unblock checks ([6b80c35](https://github.com/mhosseinab/cc-opencode-plugin/commit/6b80c35c66c3bce9954a2b6fb5ac752143b1b39e))
+- **ci:** sync lockfiles with release dependencies ([77a6b5a](https://github.com/mhosseinab/cc-opencode-plugin/commit/77a6b5a23a13de807a449ea9103b232a79701eee))
+
+### Features
+
+- add Claude Code plugin for OpenCode agent delegation ([494024e](https://github.com/mhosseinab/cc-opencode-plugin/commit/494024e4bfca491bb8a884c1c2d917ab649c79fd))
+- **ci:** automate plugin releases with semantic-release ([381031f](https://github.com/mhosseinab/cc-opencode-plugin/commit/381031f8f9f7a68ba61ab8401941708ec2b0738b))
+
 # Changelog
 
 ## Unreleased
