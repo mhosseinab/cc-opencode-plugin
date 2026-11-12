@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/mhosseinab/cc-opencode-plugin/compare/v1.0.1...v1.0.2) (2026-11-12)
+
+### Bug Fixes
+
+- harden reviewer isolation, process cleanup, and release archives ([e4e6054](https://github.com/mhosseinab/cc-opencode-plugin/commit/e4e6054babdf484ac0586c221dd89b33edeea2dd))
+- run source packaging through symlinked checkout paths ([ca8f02d](https://github.com/mhosseinab/cc-opencode-plugin/commit/ca8f02d71715098e3ab9eb1c75d9bccd39c687ed))
+
 ## [1.0.1](https://github.com/mhosseinab/cc-opencode-plugin/compare/v1.0.0...v1.0.1) (2026-11-12)
 
 ### Bug Fixes
