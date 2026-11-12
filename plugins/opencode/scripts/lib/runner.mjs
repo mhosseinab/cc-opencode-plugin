@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { EventDecoder } from './events.mjs';
-import { signalGroup } from './process.mjs';
+import { terminateProcessGroup } from './process.mjs';
 import { acquire, atomicJSON, jobDirectory, readJob, snapshot } from './state.mjs';
 import {
   agents,
@@ -22,12 +22,20 @@ const TEXT_LIMIT = 2 * 1024 * 1024;
 export async function run(command, input, root, state) {
   if (process.platform === 'win32')
     throw new Error('Use WSL2: native Windows process cancellation is not supported.');
+  const controller = new AbortController();
+  const interrupted = () =>
+    controller.abort(new Error('Runner interrupted. Partial file changes may remain.'));
+  process.on('SIGINT', interrupted);
+  process.on('SIGTERM', interrupted);
+  const { signal } = controller;
   const id = randomBytes(16).toString('hex');
-  const release = acquire(state, id);
+  let release;
   const dir = jobDirectory(state, id);
   let job;
   try {
-    await inspect(root);
+    release = acquire(state, id);
+    await inspect(root, process.env, signal);
+    signal.throwIfAborted();
     let env = { ...process.env, PWD: root, NO_COLOR: '1', TERM: 'dumb' };
     let agent = input.agent;
     if (input.resume) {
@@ -48,14 +56,20 @@ export async function run(command, input, root, state) {
     }
     let prompt = input.prompt;
     if (command.includes('review')) {
-      env = reviewEnvironment(env);
-      agent = REVIEW_AGENT;
+      agent = `${REVIEW_AGENT}-${id}`;
+      env = reviewEnvironment(env, agent);
       prompt = reviewPrompt(root, input, command === 'adversarial-review');
     }
     if (agent) {
-      const entry = (await agents(root, env, command.includes('review'))).find(
-        (entry) => entry.name === agent,
-      );
+      const entry = (
+        await agents(
+          root,
+          env,
+          command.includes('review'),
+          signal,
+          command.includes('review') ? agent : undefined,
+        )
+      ).find((entry) => entry.name === agent);
       if (!entry) throw new Error(`Unknown agent: ${agent}. Run /opencode:agents.`);
       if (entry.mode === 'subagent') {
         // CLI otherwise silently falls back. Promote only mode, preserving agent prompt/tools/model.
@@ -63,6 +77,7 @@ export async function run(command, input, root, state) {
         env = inlineConfig(env, { agent: { [agent]: { ...config.agent?.[agent], mode: 'all' } } });
       }
     }
+    signal.throwIfAborted();
     fs.mkdirSync(dir, { mode: 0o700 });
     job = {
       id,
@@ -89,19 +104,21 @@ export async function run(command, input, root, state) {
     };
     save();
     process.stderr.write(`OpenCode job ${id}\n`);
-    await execute({ input, root, dir, env, agent, prompt, job, save });
+    await execute({ input, root, dir, env, agent, prompt, job, save, signal });
     return job;
   } finally {
-    release();
+    process.removeListener('SIGINT', interrupted);
+    process.removeListener('SIGTERM', interrupted);
+    release?.();
   }
 }
 
-async function execute({ input, root, dir, env, agent, prompt, job, save }) {
+async function execute({ input, root, dir, env, agent, prompt, job, save, signal }) {
   const stdoutFile = fs.openSync(path.join(dir, 'events.jsonl'), 'wx', 0o600);
   const stderrFile = fs.openSync(path.join(dir, 'stderr.log'), 'wx', 0o600);
   let child;
   let timer;
-  let forceTimer;
+  let cleanup;
   let poll;
   let total = 0;
   let finalReason;
@@ -114,8 +131,8 @@ async function execute({ input, root, dir, env, agent, prompt, job, save }) {
     if (stopping) return;
     stopping = status;
     failure = message;
-    signalGroup(child, 'SIGTERM');
-    forceTimer = setTimeout(() => signalGroup(child, 'SIGKILL'), 2000);
+    cleanup ??= terminateProcessGroup(child);
+    cleanup.catch(() => {});
   };
   const interrupted = () =>
     stop('cancelled', 'Runner interrupted. Partial file changes may remain.');
@@ -132,12 +149,11 @@ async function execute({ input, root, dir, env, agent, prompt, job, save }) {
         failure = error.message;
       });
       child.on('close', (code, signal) => {
-        child.groupClosed = true;
         resolve({ code, signal });
       });
     });
-    process.on('SIGINT', interrupted);
-    process.on('SIGTERM', interrupted);
+    signal.addEventListener('abort', interrupted, { once: true });
+    if (signal.aborted) interrupted();
     child.stdin.on('error', (error) => {
       if (error.code !== 'EPIPE') stop('failed', error.message);
     });
@@ -212,14 +228,15 @@ async function execute({ input, root, dir, env, agent, prompt, job, save }) {
         stop('failed', `Could not persist job: ${error.message}`);
       }
     }, 250);
-    const { code, signal } = await closed;
+    const { code, signal: exitSignal } = await closed;
+    await (cleanup ?? terminateProcessGroup(child));
     try {
       decoder.end();
     } catch (error) {
       failure ??= error.message;
     }
     job.exitCode = code;
-    job.signal = signal;
+    job.signal = exitSignal;
     job.status =
       stopping ??
       (failure || code !== 0 ? 'failed' : job.permissionDenied ? 'blocked' : 'completed');
@@ -238,15 +255,13 @@ async function execute({ input, root, dir, env, agent, prompt, job, save }) {
           ? 'OpenCode rejected at least one permission request. Inspect the result before continuing.'
           : null);
   } catch (error) {
-    if (child) signalGroup(child, 'SIGKILL');
+    if (child) await (cleanup ?? terminateProcessGroup(child, 0));
     job.status = 'failed';
     job.error = error.message;
   } finally {
     clearTimeout(timer);
-    clearTimeout(forceTimer);
     clearInterval(poll);
-    process.removeListener('SIGINT', interrupted);
-    process.removeListener('SIGTERM', interrupted);
+    signal.removeEventListener('abort', interrupted);
     fs.closeSync(stdoutFile);
     fs.closeSync(stderrFile);
     job.completedAt = new Date().toISOString();

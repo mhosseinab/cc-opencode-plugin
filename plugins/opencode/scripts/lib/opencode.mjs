@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { capture } from './process.mjs';
 
 export const REVIEW_AGENT = 'cc-opencode-review';
@@ -21,8 +23,8 @@ export function binary() {
   return process.env.CC_OPENCODE_BIN || 'opencode';
 }
 
-export async function inspect(cwd, env = process.env) {
-  const { stdout } = await capture(binary(), ['--version'], { cwd, env });
+export async function inspect(cwd, env = process.env, signal) {
+  const { stdout } = await capture(binary(), ['--version'], { cwd, env, signal });
   const version = stdout.trim();
   if (!isSupportedVersion(version)) {
     throw new Error(
@@ -37,11 +39,13 @@ export function parseAgents(text) {
     mode: match[2],
   }));
 }
-export async function agents(cwd, env = process.env, pure = false) {
+export async function agents(cwd, env = process.env, pure = false, signal, expectedReviewAgent) {
   const { stdout } = await capture(binary(), [...(pure ? ['--pure'] : []), 'agent', 'list'], {
     cwd,
     env,
+    signal,
   });
+  if (expectedReviewAgent) assertReviewPolicy(stdout, expectedReviewAgent, env);
   const list = parseAgents(stdout);
   if (!list.length) throw new Error('Could not parse OpenCode agent list.');
   return list;
@@ -62,7 +66,7 @@ export function inlineConfig(env, overlay) {
 }
 
 /** Tools are allowlisted; custom tools, shell, task delegation, MCP, and network are denied. */
-export function reviewEnvironment(env) {
+export function reviewEnvironment(env, agentName = REVIEW_AGENT) {
   return inlineConfig(env, {
     permission: {
       '*': 'deny',
@@ -72,7 +76,7 @@ export function reviewEnvironment(env) {
       external_directory: 'deny',
     },
     agent: {
-      [REVIEW_AGENT]: {
+      [agentName]: {
         mode: 'primary',
         description: 'Restricted review agent for Claude Code',
         prompt:
@@ -90,10 +94,60 @@ export function reviewEnvironment(env) {
 }
 
 export function runArgs(input, agent) {
-  const args = [...(agent === REVIEW_AGENT ? ['--pure'] : []), 'run', '--format', 'json'];
+  const args = [
+    ...(agent === REVIEW_AGENT || /^cc-opencode-review-[a-f0-9]{32}$/.test(agent)
+      ? ['--pure']
+      : []),
+    'run',
+    '--format',
+    'json',
+  ];
   if (agent) args.push('--agent', agent);
   if (input.model) args.push('--model', input.model);
   if (input.variant) args.push('--variant', input.variant);
   if (input.sessionID) args.push('--session', input.sessionID);
   return args;
+}
+
+/** Fail closed if config merging or a CLI update changes the effective review policy. */
+export function assertReviewPolicy(text, agentName, env = process.env) {
+  const headers = [...text.matchAll(/^(.+) \((primary|subagent|all)\)\s*$/gm)];
+  const index = headers.findIndex((match) => match[1] === agentName);
+  const fail = () => {
+    throw new Error('Could not verify restricted OpenCode reviewer permissions. Review aborted.');
+  };
+  if (index < 0 || headers[index][2] !== 'primary') return fail();
+  let rules;
+  try {
+    rules = JSON.parse(
+      text.slice(headers[index].index + headers[index][0].length, headers[index + 1]?.index).trim(),
+    );
+  } catch {
+    return fail();
+  }
+  if (!Array.isArray(rules)) return fail();
+  const start = rules.findLastIndex(
+    (rule) => rule?.permission === '*' && rule.pattern === '*' && rule.action === 'deny',
+  );
+  const expected = [
+    ['*', '*', 'deny'],
+    ['read', '*', 'allow'],
+    ['read', '*.env', 'deny'],
+    ['read', '*.env.*', 'deny'],
+    ['read', '*.pem', 'deny'],
+    ['glob', '*', 'allow'],
+    ['grep', '*', 'allow'],
+    ['external_directory', '*', 'deny'],
+  ];
+  // OpenCode appends access to its own truncated tool output directory to every agent.
+  const outputDirectory = path.join(
+    env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
+    'opencode',
+    'tool-output',
+    '*',
+  );
+  const suffix = rules.slice(start).map((rule) => [rule.permission, rule.pattern, rule.action]);
+  if (suffix.length === expected.length + 1)
+    expected.push(['external_directory', outputDirectory, 'allow']);
+  if (start < 0 || JSON.stringify(suffix) !== JSON.stringify(expected)) return fail();
 }

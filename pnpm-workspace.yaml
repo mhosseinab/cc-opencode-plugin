@@ -1,0 +1,6 @@
+packages:
+  - .
+
+overrides:
+  minimatch: 11.0.1
+  npm: 11.21.2

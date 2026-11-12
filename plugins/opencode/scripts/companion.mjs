@@ -27,19 +27,33 @@ async function main() {
   const input = validate(command, await readInput(process.stdin));
   const root = workspace(input.cwd);
   if (['setup', 'agents', 'models'].includes(command)) {
-    const info = await inspect(root);
-    if (command === 'setup') {
+    const controller = new AbortController();
+    const interrupted = () => controller.abort(new Error('Runner interrupted.'));
+    process.on('SIGINT', interrupted);
+    process.on('SIGTERM', interrupted);
+    const { signal } = controller;
+    try {
+      const info = await inspect(root, process.env, signal);
+      if (command === 'setup') {
+        return {
+          ...info,
+          root,
+          binary: binary(),
+          agents: await agents(root, process.env, false, signal),
+          authentication: 'not_verified',
+          note: 'No provider request was made. Use a small task to verify credentials and model access.',
+        };
+      }
+      if (command === 'agents')
+        return { ...info, agents: await agents(root, process.env, false, signal) };
       return {
         ...info,
-        root,
-        binary: binary(),
-        agents: await agents(root),
-        authentication: 'not_verified',
-        note: 'No provider request was made. Use a small task to verify credentials and model access.',
+        models: (await capture(binary(), ['models'], { cwd: root, signal })).stdout,
       };
+    } finally {
+      process.removeListener('SIGINT', interrupted);
+      process.removeListener('SIGTERM', interrupted);
     }
-    if (command === 'agents') return { ...info, agents: await agents(root) };
-    return { ...info, models: (await capture(binary(), ['models'], { cwd: root })).stdout };
   }
   const state = stateDirectory(root);
   if (RUN_COMMANDS.includes(command)) {

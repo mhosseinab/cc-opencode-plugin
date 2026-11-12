@@ -297,7 +297,7 @@ test('review captures staged, unstaged, and untracked evidence with restrictive 
   const record = JSON.parse(fs.readFileSync(f.env.FAKE_RECORD, 'utf8'));
   for (const text of ['untracked.txt', 'staged', 'unstaged', 'focus on regression'])
     assert.ok(record.prompt.includes(text));
-  assert.equal(record.config.agent['cc-opencode-review'].permission['*'], 'deny');
+  assert.equal(record.config.agent[out.data.agent].permission['*'], 'deny');
   assert.equal((await call(f, 'task', { prompt: 'resume', resume: out.data.id })).code, 1);
   assert.equal((await call(f, 'review', { base: 'HEAD' })).code, 0);
   assert.doesNotMatch(
@@ -330,3 +330,140 @@ test('stale locks are reported rather than silently removed', async (t) => {
   assert.match(out.stderr, /Stale workspace lock/);
   assert.ok(fs.existsSync(lock));
 });
+
+function lifecycleFixture(t) {
+  const f = fixture(t);
+  const executable = path.join(f.base, 'lifecycle-opencode.mjs');
+  f.pidFile = path.join(f.base, 'lifecycle-pid.json');
+  f.heartbeat = path.join(f.base, 'lifecycle-heartbeat');
+  f.env.CC_OPENCODE_BIN = executable;
+  f.env.LIFECYCLE_PID_FILE = f.pidFile;
+  f.env.LIFECYCLE_HEARTBEAT = f.heartbeat;
+  fs.writeFileSync(
+    executable,
+    `#!/usr/bin/env node
+import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+const args = process.argv.slice(2);
+const stage = process.env.LIFECYCLE_STAGE;
+function hold() {
+  fs.writeFileSync(process.env.LIFECYCLE_PID_FILE, JSON.stringify({ pid: process.pid }));
+  const heartbeat = () => fs.writeFileSync(process.env.LIFECYCLE_HEARTBEAT, String(Date.now()));
+  heartbeat();
+  setInterval(heartbeat, 20);
+}
+if (args.includes('--version')) {
+  if (stage === 'version') hold();
+  else console.log('1.19.5');
+} else if (args.includes('agent')) {
+  if (stage === 'agents') hold();
+  else console.log('build (primary)');
+} else if (args.includes('models')) {
+  hold();
+} else {
+  const descendant = 'process.on("SIGTERM",()=>{}); const fs=require("node:fs"); fs.writeFileSync(process.env.LIFECYCLE_PID_FILE,JSON.stringify({pid:process.pid})); const heartbeat=()=>fs.writeFileSync(process.env.LIFECYCLE_HEARTBEAT,String(Date.now()));heartbeat();setInterval(heartbeat,20);';
+  spawn(process.execPath, ['-e', descendant], { stdio: 'ignore' });
+  setInterval(() => {}, 1000);
+}
+`,
+    { mode: 0o755 },
+  );
+  // If an assertion fails, clean up only this test's known synthetic process.
+  t.after(() => {
+    if (!fs.existsSync(f.pidFile)) return;
+    const { pid } = JSON.parse(fs.readFileSync(f.pidFile, 'utf8'));
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch (error) {
+      if (error.code !== 'ESRCH') throw error;
+    }
+  });
+  return f;
+}
+
+async function lifecycleReady(f) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(f.pidFile) && fs.existsSync(f.heartbeat)) return;
+    await delay(20);
+  }
+  throw new Error('Synthetic lifecycle process did not become ready.');
+}
+
+async function assertHeartbeatStopped(f) {
+  const first = fs.readFileSync(f.heartbeat, 'utf8');
+  await delay(150);
+  assert.equal(
+    fs.readFileSync(f.heartbeat, 'utf8'),
+    first,
+    'Owned process kept running after cleanup.',
+  );
+}
+
+for (const [command, stage, signal] of [
+  ['task', 'version', 'SIGTERM'],
+  ['task', 'agents', 'SIGINT'],
+  ['setup', 'version', 'SIGTERM'],
+  ['agents', 'agents', 'SIGINT'],
+  ['models', 'models', 'SIGTERM'],
+]) {
+  test(
+    `${signal} during ${command}/${stage} preflight cleans up the child and workspace lock`,
+    { timeout: 10000 },
+    async (t) => {
+      const f = lifecycleFixture(t);
+      f.env.LIFECYCLE_STAGE = stage;
+      const run = invoke(
+        f,
+        command,
+        command === 'task' ? { prompt: 'preflight cancellation', agent: 'build' } : {},
+      );
+      t.after(() => run.child.kill('SIGKILL'));
+      await lifecycleReady(f);
+      run.child.kill(signal);
+      const result = await run.done;
+      assert.equal(result.code, 1);
+      assert.match(result.stderr, /Runner interrupted/);
+      await assertHeartbeatStopped(f);
+      const status = await call(f, 'status');
+      assert.equal(fs.existsSync(path.join(status.data.stateDirectory, 'workspace.lock')), false);
+      assert.deepEqual(status.data.jobs, []);
+      f.env.CC_OPENCODE_BIN = fake;
+      assert.equal(
+        (await call(f, 'task', { prompt: 'task after preflight cancellation' })).code,
+        0,
+      );
+    },
+  );
+}
+
+for (const mode of ['cancel', 'deadline']) {
+  test(
+    `${mode} cleans up a same-group descendant with ignored stdio before releasing the lock`,
+    { timeout: 10000 },
+    async (t) => {
+      const f = lifecycleFixture(t);
+      const run = invoke(f, 'task', {
+        prompt: 'owned descendant',
+        timeoutSeconds: mode === 'deadline' ? 1 : 8,
+      });
+      t.after(() => run.child.kill('SIGKILL'));
+      await lifecycleReady(f);
+      const active = await runningJob(f);
+      if (mode === 'cancel') {
+        await call(f, 'cancel', { job: active.id });
+        await delay(400);
+        const probe = await call({ ...f, env: { ...f.env, CC_OPENCODE_BIN: fake } }, 'task', {
+          prompt: 'probe cleanup lock',
+        });
+        assert.equal(probe.code, 1);
+        assert.match(probe.stderr, /Workspace busy/);
+      }
+      const result = await run.done;
+      assert.equal(result.data.status, mode === 'cancel' ? 'cancelled' : 'timed_out');
+      await assertHeartbeatStopped(f);
+      f.env.CC_OPENCODE_BIN = fake;
+      assert.equal((await call(f, 'task', { prompt: 'task after descendant cleanup' })).code, 0);
+    },
+  );
+}

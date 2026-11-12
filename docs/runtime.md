@@ -41,7 +41,7 @@ The execution deadline starts with OpenCode `run`, after bounded preflight check
 
 ## Crash recovery
 
-A normal signal or cancellation is handled by the runner. After `SIGKILL`/host failure:
+A normal signal or cancellation is handled by the runner, including during preflight checks. Cleanup tracks the process group independently of its leader, escalates to SIGKILL after a two-second grace period, and finishes before the workspace lock is released. Descendants that deliberately escape the process group remain outside this guarantee. After `SIGKILL`/host failure:
 
 1. Inspect `/opencode:status` and the exact `workspace.lock` path in the error. Confirm no bridge runner or OpenCode process is still using that checkout, including child processes. A PID check alone is insufficient because PIDs can be reused and descendants can outlive the runner.
 2. Stop any orphaned process using your normal OS tools, verifying its command and checkout before signalling it. The plugin deliberately does not kill stored PIDs.

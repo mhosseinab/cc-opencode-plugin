@@ -10,7 +10,9 @@ const config = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT || '{}');
 if (args[0] === 'agent') {
   console.log('build (primary)\nplan (primary)\nexplore (subagent)');
   for (const [name, agent] of Object.entries(config.agent || {}))
-    console.log(`${name} (${agent.mode})`);
+    console.log(
+      `${name} (${agent.mode})\n${JSON.stringify(Object.entries(agent.permission || {}).flatMap(([permission, value]) => (typeof value === 'string' ? [{ permission, pattern: '*', action: value }] : Object.entries(value).map(([pattern, action]) => ({ permission, pattern, action })))))}`,
+    );
   process.exit(0);
 }
 if (args[0] === 'models') {

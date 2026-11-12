@@ -18,7 +18,7 @@ Accepted versions and tested versions are different: CI exercises 1.19.4 on Node
 | Windows         | Use WSL2; native Windows process-group cancellation is unsupported                       |
 | Model provider  | Uses your existing OpenCode configuration and credentials; CI uses a local mock provider |
 
-The real-binary test checks stdin prompts, JSON events, actual file creation, custom subagent selection, session continuation, configuration overlays, and the tools exposed to the reviewer. Unit/process tests cover the version range, including a regression test for setup and delegation with 1.19.5.
+The real-binary test checks stdin prompts, JSON events, actual file creation, custom subagent selection, session continuation, configuration overlays, and reviewer tool restrictions under hostile project configuration, including an attempted forbidden shell call. Unit/process tests cover the version range, including a regression test for setup and delegation with 1.19.5.
 
 Marketplace installation and setup are tested in an isolated Claude configuration. This does not validate your provider credentials, paid model access, or a model's coding quality. Run a small task to check your own provider.
 

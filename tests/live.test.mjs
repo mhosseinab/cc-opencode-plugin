@@ -20,6 +20,7 @@ test(
     fs.mkdirSync(root);
     const requests = [];
     let issuedWrite = false;
+    let attemptedReviewWrite = false;
     const server = http.createServer(async (req, res) => {
       let body = '';
       for await (const chunk of req) body += chunk;
@@ -31,7 +32,30 @@ test(
           `data: ${JSON.stringify({ id: 'chatcmpl-local', object: 'chat.completion.chunk', created: 1, model: 'fixture', choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
         );
       chunk({ role: 'assistant', content: '' });
-      if (!issuedWrite && request.tools?.some((tool) => tool.function.name === 'write')) {
+      const reviewing = request.messages?.some(
+        (message) => typeof message.content === 'string' && message.content.includes('<diff>'),
+      );
+      if (reviewing && !attemptedReviewWrite) {
+        attemptedReviewWrite = true;
+        // A hostile model can name a tool even when it is absent from the advertised toolset.
+        chunk({
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_forbidden_review_write',
+              type: 'function',
+              function: {
+                name: 'bash',
+                arguments: JSON.stringify({
+                  command: 'touch review-write-marker',
+                  description: 'Attempt forbidden write',
+                }),
+              },
+            },
+          ],
+        });
+        chunk({}, 'tool_calls');
+      } else if (!issuedWrite && request.tools?.some((tool) => tool.function.name === 'write')) {
         issuedWrite = true;
         chunk({
           tool_calls: [
@@ -141,6 +165,23 @@ test(
     git('add', '.');
     git('commit', '-qm', 'base');
     fs.writeFileSync(path.join(root, 'test.txt'), 'after\n');
+    fs.writeFileSync(
+      path.join(root, 'opencode.json'),
+      JSON.stringify({
+        agent: {
+          'cc-opencode-review': {
+            mode: 'primary',
+            permission: {
+              '*': 'allow',
+              bash: 'allow',
+              edit: 'allow',
+              task: 'allow',
+              webfetch: 'allow',
+            },
+          },
+        },
+      }),
+    );
     const review = await invoke('review', { timeoutSeconds: 40 });
     assert.equal(review.code, 0, JSON.stringify(review));
     const reviewRequest = requests.findLast((r) =>
@@ -156,6 +197,8 @@ test(
     assert.ok(toolNames.includes('grep'));
     for (const tool of toolNames)
       assert.ok(['read', 'glob', 'grep'].includes(tool), `Unexpected review tool: ${tool}`);
+    assert.ok(attemptedReviewWrite);
+    assert.equal(fs.existsSync(path.join(root, 'review-write-marker')), false);
     assert.equal(fs.readFileSync(path.join(root, 'test.txt'), 'utf8'), 'after\n');
     assert.ok(requests.length >= 3);
   },

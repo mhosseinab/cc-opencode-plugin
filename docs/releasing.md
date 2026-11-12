@@ -72,3 +72,5 @@ After a failed release, inspect whether the release commit, tag, and GitHub Rele
 The local integration test exercises version preparation, semantic-release dry-run, a metadata commit, a pushed tag, archive creation, and no-op repeat runs against an isolated local bare Git remote. It does not publish to GitHub or prove your repository permissions; the first real release remains an acceptance check.
 
 References: [semantic-release GitHub Actions recipe](https://semantic-release.gitbook.io/semantic-release/recipes/ci-configurations/github-actions), [git release assets](https://github.com/semantic-release/git), [GitHub release plugin](https://github.com/semantic-release/github), [Claude marketplace sources](https://code.claude.com/docs/en/plugins/marketplace-reference).
+
+Source archives contain Git-tracked regular files, using the current working-tree bytes so prepared release versions are included. Ignored and untracked files are excluded. Packaging rejects external paths and symlinks, and always excludes generated dependency, coverage, and distribution directories.

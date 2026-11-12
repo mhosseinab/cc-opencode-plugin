@@ -1,7 +1,45 @@
 import { spawn, execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
+
+/** Only signal a process group created by this invocation; never use persisted PIDs. */
+export function signalGroup(child, signal) {
+  if (!child?.pid || child.groupReleased) return false;
+  try {
+    process.kill(-child.pid, signal);
+    return true;
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+    child.groupReleased = true;
+    return false;
+  }
+}
+
+/** A leader closing its streams does not mean its descendants have terminated. */
+export function terminateProcessGroup(child, graceMilliseconds = 2000) {
+  if (!child?.pid) return Promise.resolve();
+  if (child.groupTermination) return child.groupTermination;
+  child.groupTermination = (async () => {
+    if (process.platform === 'win32') {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      return;
+    }
+    if (!signalGroup(child, 'SIGTERM')) return;
+    const deadline = Date.now() + graceMilliseconds;
+    while (Date.now() < deadline) {
+      if (!signalGroup(child, 0)) return;
+      await delay(Math.min(25, deadline - Date.now()));
+    }
+    // The group is still owned in memory even if its leader has already exited.
+    // Deliver escalation before allowing a caller to release its workspace lock.
+    signalGroup(child, 'SIGKILL');
+    child.groupReleased = true;
+  })();
+  return child.groupTermination;
+}
 
 /** Argument arrays only. Never execute user input through a shell. */
-export function capture(binary, args, { cwd, env = process.env, timeout = 20000 } = {}) {
+export function capture(binary, args, { cwd, env = process.env, timeout = 20000, signal } = {}) {
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, {
       cwd,
@@ -13,11 +51,16 @@ export function capture(binary, args, { cwd, env = process.env, timeout = 20000 
     const err = [];
     let bytes = 0;
     let problem;
+    let cleanup;
     const stop = (error) => {
       problem ??= error;
-      if (process.platform === 'win32') child.kill('SIGKILL');
-      else signalGroup(child, 'SIGKILL');
+      cleanup ??= terminateProcessGroup(child);
+      // The close handler observes the same promise and reports cleanup errors.
+      cleanup.catch(() => {});
     };
+    const aborted = () => stop(signal.reason ?? new Error(`${binary} was cancelled.`));
+    signal?.addEventListener('abort', aborted, { once: true });
+    if (signal?.aborted) aborted();
     const timer = setTimeout(() => stop(new Error(`${binary} timed out.`)), timeout);
     for (const [stream, list] of [
       [child.stdout, out],
@@ -32,26 +75,22 @@ export function capture(binary, args, { cwd, env = process.env, timeout = 20000 
     child.on('error', (error) => {
       problem = error;
     });
-    child.on('close', (code) => {
-      child.groupClosed = true;
+    child.on('close', async (code) => {
       clearTimeout(timer);
-      if (problem) return reject(problem);
-      const stdout = Buffer.concat(out).toString('utf8');
-      const stderr = Buffer.concat(err).toString('utf8');
-      if (code !== 0) return reject(new Error(`${binary} exited ${code}: ${stderr.slice(-4000)}`));
-      resolve({ stdout, stderr });
+      signal?.removeEventListener('abort', aborted);
+      try {
+        await (cleanup ?? terminateProcessGroup(child));
+        if (problem) return reject(problem);
+        const stdout = Buffer.concat(out).toString('utf8');
+        const stderr = Buffer.concat(err).toString('utf8');
+        if (code !== 0)
+          return reject(new Error(`${binary} exited ${code}: ${stderr.slice(-4000)}`));
+        resolve({ stdout, stderr });
+      } catch (error) {
+        reject(error);
+      }
     });
   });
-}
-
-/** Only call for an owned child process group before its streams close; never use persisted PIDs. */
-export function signalGroup(child, signal) {
-  if (!child?.pid || child.groupClosed) return;
-  try {
-    process.kill(-child.pid, signal);
-  } catch (error) {
-    if (error.code !== 'ESRCH') throw error;
-  }
 }
 
 export function git(cwd, args) {
