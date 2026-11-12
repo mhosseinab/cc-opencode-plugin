@@ -75,3 +75,18 @@ test('packaging rejects tracked links to files outside the source checkout', (t)
   assert.throws(() => createSourceArchive(root), /nonregular or external source file/);
   assert.equal(fs.existsSync(path.join(root, 'dist/cc-opencode-plugin-1.0.0.tar.gz')), false);
 });
+
+test('archive CLI runs through a symlinked checkout path', (t) => {
+  const { root, base, git } = fixture(t);
+  fs.mkdirSync(path.join(root, 'scripts'));
+  fs.copyFileSync(path.resolve('scripts/package.mjs'), path.join(root, 'scripts/package.mjs'));
+  git('add', 'scripts/package.mjs');
+  const alias = path.join(base, 'checkout-alias');
+  fs.symlinkSync(root, alias, 'dir');
+  const output = execFileSync(process.execPath, [path.join(alias, 'scripts/package.mjs')], {
+    cwd: alias,
+    encoding: 'utf8',
+  }).trim();
+  assert.equal(output, path.join(fs.realpathSync(root), 'dist/cc-opencode-plugin-1.0.0.tar.gz'));
+  assert.ok(fs.existsSync(output));
+});

@@ -90,6 +90,6 @@ export function createSourceArchive(directory) {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   console.log(createSourceArchive(path.resolve(import.meta.dirname, '..')));
 }
