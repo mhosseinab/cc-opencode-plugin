@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## Unreleased
 
+- Semantic-release CI, synchronized version metadata, and marketplace installs pinned to release tags.
 - Claude Code plugin marketplace and delegation skill.
 - Task/rescue/transfer commands with custom agent, provider/model, and variant selection.
 - Restricted normal and adversarial reviews with working-tree or branch targets.

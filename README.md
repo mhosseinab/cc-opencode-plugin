@@ -34,10 +34,10 @@ Inside Claude Code:
 
 No `npm install` or build step is needed to **use** the plugin. Development tooling is separate.
 
-After publishing this repository on GitHub, replace `YOUR-ACCOUNT` below with the actual owner:
+After publishing this repository on GitHub and completing the first automated release, replace `YOUR-ACCOUNT` below with the actual owner:
 
 ```text
-/plugin marketplace add YOUR-ACCOUNT/cc-opencode-plugin
+/plugin marketplace add mhosseinab/cc-opencode-plugin
 /plugin install opencode@cc-opencode
 /reload-plugins
 ```
@@ -108,8 +108,13 @@ npm run check
 npm run test:coverage
 OPENCODE_LIVE_BIN="$(command -v opencode)" npm test
 npm run package
+npm run release:dry-run  # requires the real Git origin and GITHUB_REPOSITORY
 ```
 
 The live integration test is skipped unless `OPENCODE_LIVE_BIN` is set. It uses temporary OpenCode config/data directories and no real API credentials. Lint/format tools are development-only dependencies. Runtime code uses Node's standard library.
 
 See [architecture](docs/architecture.md), [runtime/recovery](docs/runtime.md), [compatibility](docs/compatibility.md), [upstream analysis](docs/upstream-analysis.md), and [release checklist](docs/releasing.md).
+
+## Releases
+
+Successful `main` pushes run semantic-release after CI. Conventional Commits determine the version; the workflow synchronizes plugin/package/marketplace versions, pins marketplace installs to the release tag, and publishes a GitHub Release with an archive. No npm publication is needed. With no previous release tags the first release is 1.0.0. See [release setup, permissions, and update commands](docs/releasing.md).

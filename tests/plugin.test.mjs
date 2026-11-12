@@ -10,7 +10,14 @@ test('marketplace, package and installed plugin versions agree', () => {
   assert.equal(manifest.version, pkg.version);
   assert.equal(marketplace.plugins[0].version, pkg.version);
   assert.equal(marketplace.plugins[0].name, manifest.name);
-  assert.equal(marketplace.plugins[0].source, './plugins/opencode');
+  const source = marketplace.plugins[0].source;
+  if (typeof source === 'string') assert.equal(source, './plugins/opencode');
+  else {
+    assert.equal(source.source, 'git-subdir');
+    assert.equal(source.path, 'plugins/opencode');
+    assert.equal(source.ref, `v${pkg.version}`);
+    assert.match(source.url, /^https:\/\/github\.com\/.+\/.+\.git$/);
+  }
   assert.equal(Object.keys(pkg.dependencies ?? {}).length, 0);
 });
 
