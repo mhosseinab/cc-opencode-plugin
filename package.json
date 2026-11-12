@@ -1,6 +1,6 @@
 {
   "name": "cc-opencode-plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Delegate from Claude Code to local OpenCode agents",
   "license": "MIT",

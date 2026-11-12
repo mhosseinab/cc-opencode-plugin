@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/mhosseinab/cc-opencode-plugin/compare/v1.0.0...v1.0.1) (2026-11-12)
+
+### Bug Fixes
+
+- accept compatible OpenCode updates and simplify setup ([0c60677](https://github.com/mhosseinab/cc-opencode-plugin/commit/0c60677488e3d5b5bb029b5550559070d433410b))
+
 # 1.0.0 (2026-11-12)
 
 ### Bug Fixes
