@@ -1,6 +1,6 @@
 # Runtime contract
 
-Requires Node.js 22.18+, Git for reviews, and OpenCode **1.19.4**. Linux, macOS, and WSL2 are supported. Use the user's existing OpenCode configuration and provider authentication. Never install dependencies or change authentication automatically.
+Requires Node.js 22.18+, Git for reviews, and a stable OpenCode **1.x release from 1.19.4 onward**. Linux, macOS, and WSL2 are supported. Use the user's existing OpenCode configuration and provider authentication. Never install dependencies or change authentication automatically.
 
 All commands receive exactly one JSON object on stdin. Never interpolate `$ARGUMENTS` into a shell command or use command substitution. Translate arguments into JSON data, preserving the user's task text. Use a **single-quoted heredoc delimiter** which does not appear as a whole line in the input. JSON-escape newlines and quotes. No runtime flags belong in the prompt.
 
@@ -37,6 +37,6 @@ Commands:
 
 ## Recovery and compatibility
 
-Only OpenCode 1.19.4 is accepted. Upgrade support requires retesting its CLI and permission contracts. This installed plugin supports Linux/macOS/WSL2; use WSL2 on Windows.
+Stable OpenCode releases in the range `>=1.19.4 <2.0.0` are accepted. Prerelease builds and other major versions require separate compatibility verification. This installed plugin supports Linux/macOS/WSL2; use WSL2 on Windows.
 
 If the runner dies abruptly, do not automatically remove the workspace lock or signal its saved PID. First inspect status and your OS process list, verify the command and checkout of any remaining runner/OpenCode descendants, and stop orphaned work using your normal OS tools. Once no job is active, manually remove only the exact `workspace.lock` file named in the error. Do not run recovery concurrently with another invocation. Inspect partial edits before restarting. State defaults to `${XDG_STATE_HOME:-~/.local/state}/cc-opencode/<workspace-hash>/`; `status` reports its exact path. Logs can contain secrets and are not redacted. The bridge does not automatically delete old records, and OpenCode independently retains sessions.

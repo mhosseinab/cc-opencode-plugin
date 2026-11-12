@@ -37,11 +37,13 @@ With no previous release tag, semantic-release starts at **1.0.0** when it finds
 
 ## Install and update
 
-After the first successful release, users replace `YOUR-ACCOUNT` with your GitHub owner:
+Inside Claude Code, users install and check the plugin with:
 
 ```text
 /plugin marketplace add mhosseinab/cc-opencode-plugin
 /plugin install opencode@cc-opencode
+/reload-plugins
+/opencode:setup
 ```
 
 To pick up a subsequent release:
@@ -50,6 +52,7 @@ To pick up a subsequent release:
 /plugin marketplace update cc-opencode
 /plugin update opencode@cc-opencode
 /reload-plugins
+/opencode:setup
 ```
 
 A GitHub marketplace is installable without a GitHub Release, but release automation gives versions, tagged source, notes, and an archive. This workflow does not submit the plugin to Anthropic's official directory.

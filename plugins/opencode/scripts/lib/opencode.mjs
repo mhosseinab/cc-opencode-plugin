@@ -1,6 +1,22 @@
 import { capture } from './process.mjs';
 
 export const REVIEW_AGENT = 'cc-opencode-review';
+export const OPENCODE_VERSION_RANGE = '>=1.19.4 <2.0.0';
+
+/** Accept stable compatible releases, comparing numeric components rather than strings. */
+export function isSupportedVersion(version) {
+  const match =
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(
+      version,
+    );
+  if (!match) return false;
+  const [major, minor, patch] = match.slice(1).map(Number);
+  return (
+    [major, minor, patch].every(Number.isSafeInteger) &&
+    major === 1 &&
+    (minor > 19 || (minor === 19 && patch >= 4))
+  );
+}
 export function binary() {
   return process.env.CC_OPENCODE_BIN || 'opencode';
 }
@@ -8,9 +24,9 @@ export function binary() {
 export async function inspect(cwd, env = process.env) {
   const { stdout } = await capture(binary(), ['--version'], { cwd, env });
   const version = stdout.trim();
-  if (!/^1\.19\.4$/.test(version)) {
+  if (!isSupportedVersion(version)) {
     throw new Error(
-      `Supported OpenCode version is 1.19.4; found ${JSON.stringify(version)}. See RUNTIME.md.`,
+      `Supported OpenCode version range is ${OPENCODE_VERSION_RANGE}; found ${JSON.stringify(version)}. See RUNTIME.md.`,
     );
   }
   return { version };

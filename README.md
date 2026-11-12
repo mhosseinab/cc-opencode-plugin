@@ -1,106 +1,113 @@
 # OpenCode plugin for Claude Code
 
-Let Claude Code plan and coordinate work while OpenCode agents implement, investigate, or provide an independent review. Uses your local OpenCode installation, providers, models, and agent definitions.
+Let Claude Code coordinate work while your local OpenCode agents implement changes, investigate problems, or review code. Use your existing OpenCode providers, models, credentials, and custom agents.
 
-An independent implementation inspired by [OpenAI's Codex plugin](https://github.com/openai/codex-plugin-cc). Not affiliated with OpenAI, Anthropic, or OpenCode.
+## Install
 
-## Quick start
+Requires **Node.js 22.18+**, **OpenCode 1.19.4 or newer within 1.x**, and Claude Code with plugin support. Git is required for reviews. Linux and macOS are tested in CI; Windows users can use WSL2.
 
-Requires **Node.js 22.18+**, **OpenCode 1.19.4**, and Claude Code with plugin support. Linux, macOS, and WSL2 are supported targets; see [compatibility](docs/compatibility.md) for what has actually been verified. Git is required for reviews.
-
-If OpenCode is not installed, install the tested version yourself:
-
-```bash
-npm install -g opencode-ai@1.19.4
-opencode auth login
-```
-
-Configure your preferred providers and agents in OpenCode as usual. The plugin does not host a model, proxy credentials, or require a particular model vendor.
-
-From a local checkout of this repository:
-
-```bash
-claude --plugin-dir ./plugins/opencode
-```
-
-Inside Claude Code:
-
-```text
-/opencode:setup
-/opencode:agents
-/opencode:task --agent build Fix the failing pagination test and run the focused tests
-/opencode:review
-```
-
-No `npm install` or build step is needed to **use** the plugin. Development tooling is separate.
-
-After publishing this repository on GitHub and completing the first automated release, replace `YOUR-ACCOUNT` below with the actual owner:
+Inside Claude Code, run:
 
 ```text
 /plugin marketplace add mhosseinab/cc-opencode-plugin
 /plugin install opencode@cc-opencode
 /reload-plugins
+/opencode:setup
 ```
 
-## Commands
+If you need to install OpenCode and connect a provider, run these in your terminal first:
 
-| Command                        | Purpose                                                             |
-| ------------------------------ | ------------------------------------------------------------------- |
-| `/opencode:task`               | Delegate implementation or investigation                            |
-| `/opencode:rescue`             | Alias workflow for difficult investigations or fixes                |
-| `/opencode:review`             | Restricted review of staged, unstaged, and untracked work           |
-| `/opencode:adversarial-review` | Challenge assumptions, design, and failure handling                 |
-| `/opencode:transfer`           | Hand off a task using a concise summary of the visible conversation |
-| `/opencode:agents`             | Discover primary agents and subagents                               |
-| `/opencode:models`             | List models from your OpenCode providers                            |
-| `/opencode:status`             | Inspect recent jobs in this checkout                                |
-| `/opencode:result JOB`         | Retrieve one job's complete recorded output                         |
-| `/opencode:cancel JOB`         | Request cancellation of one explicit job                            |
-| `/opencode:setup`              | Check binary version and agent discovery                            |
+```bash
+npm install -g 'opencode-ai@^1.19.4'
+opencode auth login
+```
 
-Examples:
+No repository checkout or plugin build is required. `/opencode:setup` checks the OpenCode version and available agents; your first task verifies provider access.
+
+## Usage
+
+```text
+/opencode:agents
+/opencode:models
+/opencode:task --agent build Fix the failing pagination test and run the focused tests
+/opencode:review
+```
+
+Select a model and its provider-specific variant:
+
+```text
+/opencode:task --agent build --model PROVIDER/MODEL --variant VARIANT Investigate the memory leak
+```
+
+Replace `PROVIDER/MODEL` with an entry from `/opencode:models` and `VARIANT` with a value supported by that model. Omit these options to use your OpenCode defaults.
+
+For background work and continuation:
 
 ```text
 /opencode:task --background --agent build Implement the agreed API change and run its tests
 /opencode:status
-/opencode:result FULL_JOB_ID_FROM_STATUS
-/opencode:task --resume FULL_JOB_ID_FROM_STATUS Address the remaining failing test
-/opencode:cancel FULL_JOB_ID_FROM_STATUS
-/opencode:review --base main Focus on authorization and race conditions
-/opencode:adversarial-review --background Challenge the retry and rollback design
-/opencode:task --agent YOUR_AGENT --model YOUR_PROVIDER/YOUR_MODEL Investigate the memory leak
+/opencode:result JOB_ID
+/opencode:task --resume JOB_ID Address the remaining failing test
+/opencode:cancel JOB_ID
 ```
 
-`YOUR_AGENT`, model names, account names, and job IDs above are placeholders. Discover real values with `agents`, `models`, and `status`.
+Use the complete job ID returned by the runtime. Cancellation applies to an active job and leaves any partial file changes in place.
 
-Foreground is the default. `--background` uses Claude Code's native Bash background tasks. `--wait` explicitly selects foreground. Task commands also accept `--variant`, `--timeout SECONDS`, and explicit `--resume JOB`. Reviews accept model, variant, timeout, optional focus text, and `--base REF`, but deliberately reject agent/session overrides.
+## Commands
 
-Claude can use the included delegation skill when OpenCode delegation is requested, without a slash command. Claude remains responsible for task scope, integration, and independent verification. The plugin cannot guarantee that a model follows a skill instruction; the runtime enforces its own option, lock, version, and review-tool checks.
+| Command                        | Purpose                                             |
+| ------------------------------ | --------------------------------------------------- |
+| `/opencode:task`               | Delegate implementation or investigation            |
+| `/opencode:rescue`             | Delegate a difficult investigation or fix           |
+| `/opencode:review`             | Review staged, unstaged, and untracked work         |
+| `/opencode:adversarial-review` | Challenge design choices and failure handling       |
+| `/opencode:transfer`           | Hand off the current task with a context summary    |
+| `/opencode:agents`             | List primary agents and subagents                   |
+| `/opencode:models`             | List models from your providers                     |
+| `/opencode:status`             | Show recent jobs in this checkout                   |
+| `/opencode:result JOB_ID`      | Retrieve a job's recorded output                    |
+| `/opencode:cancel JOB_ID`      | Request cancellation of a specific job              |
+| `/opencode:setup`              | Check the OpenCode installation and discover agents |
 
-## What the bridge does
+Tasks accept `--agent`, `--model`, `--variant`, `--resume JOB_ID`, and `--timeout SECONDS`. Run in the foreground by default, or use `--background` or `--wait` explicitly.
 
-- Runs `opencode run --format json` with argument arrays and the prompt on stdin.
-- Preserves custom agent prompts, models, and permissions. For an explicitly selected subagent, temporarily changes only its mode to `all` so the CLI can run it directly.
-- Rejects unknown agents instead of accepting OpenCode's silent fallback.
-- Records explicit job/session mappings for continuation; never resumes an unrelated global “last session.”
-- Uses an exclusive lock per canonical checkout to prevent simultaneous plugin jobs from editing it.
-- Records bounded logs and results outside the repository, in private directories/files.
-- Handles deadlines, cancellation, provider errors, malformed events, incomplete turns, and permission rejections distinctly.
-- Uses a fresh reviewer with a tool allowlist and OpenCode's `--pure` flag to disable external OpenCode plugins during review.
+Reviews accept model, variant, timeout, and optional focus text. Use `--base REF` for committed branch changes:
 
-Implementation jobs retain your OpenCode policy. The bridge never passes `--auto`; OpenCode rejects unresolved interactive approval requests in headless mode. A job may finish as `blocked` when that happens. Explicit existing `allow` permissions still permit actions. Claude permissions do **not** automatically become OpenCode permissions.
+```text
+/opencode:review --base main Focus on authorization and race conditions
+/opencode:adversarial-review --background Challenge the retry and rollback design
+```
 
-Review restrictions are **not an operating-system sandbox**. Configure only trusted OpenCode providers and repository configuration. Diffs and code can contain sensitive data and are sent to the selected model provider. Stored tool output may contain secrets; it is not automatically redacted. See [security](SECURITY.md).
+Reviews always use a fresh restricted agent. Claude can also use the included delegation skill when you ask it to use OpenCode without a slash command.
 
-## Verification and limits
+## Configuration and permissions
 
-The repository contains unit/integration tests plus an optional test that runs the real OpenCode binary against an in-process, deterministic OpenAI-compatible mock provider. That test verifies session continuation, direct subagent execution, and the actual tools sent to the reviewer model. It does not measure a real model's coding quality or validate your provider credentials.
+Implementation tasks use your existing OpenCode configuration and tool permissions. Custom agents and subagents are supported; a selected subagent's mode is temporarily changed to `all` for that process, preserving its other settings. Unknown agent names are rejected.
 
-`completed` means a complete OpenCode turn was received, **not** that its changes are correct or its claimed tests passed. Inspect the diff and run the appropriate checks before merging.
+The bridge does not enable automatic permission approval. OpenCode rejects unresolved interactive permission requests in headless mode; the runtime reports those jobs as `blocked`. Claude's permissions do not automatically become OpenCode's permissions.
 
-One plugin job per checkout; separate Git worktrees can run concurrently. The lock does not stop humans, Claude, or other programs from editing. Background jobs depend on Claude's host process. Cancellation does not undo file changes. Automatic review-on-stop loops, transcript scraping, remote server attachment, and automatic worktree merging are not included in this release.
+Review tools are restricted to read/glob/grep, and external OpenCode plugins are disabled during review. These restrictions are not an operating-system sandbox. Code and diffs go to your selected model provider, and private local logs may contain sensitive output. See [security](SECURITY.md).
+
+## Execution and verification
+
+Only one plugin job runs in a checkout at a time; use separate Git worktrees for concurrent work. The lock does not prevent edits by Claude, humans, or other programs. Background jobs depend on Claude's host process.
+
+A `completed` job means OpenCode returned a complete turn. Inspect its diff and run the relevant checks before merging. Automatic review-on-stop loops, remote server attachment, and automatic worktree merging are not included.
+
+## Update
+
+```text
+/plugin marketplace update cc-opencode
+/plugin update opencode@cc-opencode
+/reload-plugins
+/opencode:setup
+```
+
+The marketplace installs tagged releases. Compatible stable OpenCode updates within 1.x are accepted; see [compatibility](docs/compatibility.md) for the tested versions and version policy.
 
 ## Development
+
+From a local checkout:
 
 ```bash
 npm ci
@@ -108,13 +115,13 @@ npm run check
 npm run test:coverage
 OPENCODE_LIVE_BIN="$(command -v opencode)" npm test
 npm run package
-npm run release:dry-run  # requires the real Git origin and GITHUB_REPOSITORY
+claude --plugin-dir ./plugins/opencode
 ```
 
-The live integration test is skipped unless `OPENCODE_LIVE_BIN` is set. It uses temporary OpenCode config/data directories and no real API credentials. Lint/format tools are development-only dependencies. Runtime code uses Node's standard library.
+Runtime code uses Node's standard library and has no npm dependencies. The optional real-binary test uses a local mock provider and temporary OpenCode directories, without paid API calls. It is skipped unless `OPENCODE_LIVE_BIN` is set.
 
-See [architecture](docs/architecture.md), [runtime/recovery](docs/runtime.md), [compatibility](docs/compatibility.md), [upstream analysis](docs/upstream-analysis.md), and [release checklist](docs/releasing.md).
+Successful `main` pushes run semantic-release after CI. See [releasing](docs/releasing.md) for commit conventions, permissions, and the release process.
 
-## Releases
+Further documentation: [architecture](docs/architecture.md), [runtime and recovery](docs/runtime.md), [compatibility](docs/compatibility.md), [contributing](CONTRIBUTING.md), and [upstream approach](docs/upstream-analysis.md).
 
-Successful `main` pushes run semantic-release after CI. Conventional Commits determine the version; the workflow synchronizes plugin/package/marketplace versions, pins marketplace installs to the release tag, and publishes a GitHub Release with an archive. No npm publication is needed. With no previous release tags the first release is 1.0.0. See [release setup, permissions, and update commands](docs/releasing.md).
+Inspired by [OpenAI's Codex plugin](https://github.com/openai/codex-plugin-cc). This project is not affiliated with OpenAI, Anthropic, or OpenCode.

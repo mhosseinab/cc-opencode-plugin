@@ -21,4 +21,4 @@ OpenCode already has noninteractive execution with structured events and native 
 | Interactive terminal takeover         | Not included; recorded OpenCode session can be opened manually                     |
 | Remote server/broker reuse            | Not included; one local OpenCode runtime per run                                   |
 
-Changes compared with the inspected approach include literal stdin prompt handling, explicit-only continuation/cancellation, direct subagent support, a tool allowlist for review, conservative workspace locking, bounded output, strict tested-version checks, and a real-binary local-provider contract test. These are design tradeoffs rather than a claim that every upstream feature is reproduced.
+Changes compared with the inspected approach include literal stdin prompt handling, explicit-only continuation/cancellation, direct subagent support, a tool allowlist for review, conservative workspace locking, bounded output, compatible-version checks, and a real-binary local-provider contract test. These are design tradeoffs rather than a claim that every upstream feature is reproduced.
