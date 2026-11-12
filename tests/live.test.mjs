@@ -14,7 +14,7 @@ test(
     timeout: 120000,
   },
   async (t) => {
-    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-opencode-live-'));
+    const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cc-opencode-live-')));
     t.after(() => fs.rmSync(base, { recursive: true, force: true }));
     const root = path.join(base, 'repo');
     fs.mkdirSync(root);

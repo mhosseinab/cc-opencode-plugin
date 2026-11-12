@@ -7,7 +7,11 @@ import { spawn, execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validate } from '../plugins/opencode/scripts/lib/input.mjs';
 import { EventDecoder } from '../plugins/opencode/scripts/lib/events.mjs';
-import { reviewEnvironment, parseAgents } from '../plugins/opencode/scripts/lib/opencode.mjs';
+import {
+  reviewEnvironment,
+  parseAgents,
+  isSupportedVersion,
+} from '../plugins/opencode/scripts/lib/opencode.mjs';
 import { workspace } from '../plugins/opencode/scripts/lib/state.mjs';
 
 const cli = path.resolve('plugins/opencode/scripts/companion.mjs');
@@ -234,6 +238,36 @@ test('SIGTERM records cancellation and cleans up the live child', async (t) => {
   await runningJob(f);
   run.child.kill('SIGTERM');
   assert.equal((await run.done).data.status, 'cancelled');
+});
+
+test('version checks accept compatible stable releases and reject unsupported versions', () => {
+  for (const version of ['1.19.4', '1.19.5', '1.19.10', '1.20.0', '1.100.0', '1.19.5+build.1']) {
+    assert.equal(isSupportedVersion(version), true, version);
+  }
+  for (const version of [
+    '1.19.3',
+    '1.9.99',
+    '0.99.0',
+    '2.0.0',
+    '1.19.5-beta.1',
+    '1.019.5',
+    '1.19',
+    'not-a-version',
+    '1.19.5+',
+  ]) {
+    assert.equal(isSupportedVersion(version), false, version);
+  }
+});
+
+test('setup and delegated tasks accept a newer compatible OpenCode release', async (t) => {
+  const f = fixture(t);
+  f.env.FAKE_VERSION = '1.19.5';
+  const setup = await call(f, 'setup');
+  assert.equal(setup.code, 0, setup.stderr);
+  assert.equal(setup.data.version, '1.19.5');
+  const task = await call(f, 'task', { prompt: 'Check the version regression' });
+  assert.equal(task.code, 0, task.stderr);
+  assert.equal(task.data.status, 'completed');
 });
 
 test('unsupported OpenCode versions are refused before running a model', async (t) => {

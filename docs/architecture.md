@@ -2,7 +2,7 @@
 
 Claude Code loads conventional plugin commands and a delegation skill. Those instructions call one small Node CLI, supplying typed-by-validation JSON on stdin. This keeps the installed plugin self-contained: no MCP daemon, localhost listener, background broker, npm install, or generated JavaScript is required.
 
-The runtime calls the documented OpenCode noninteractive CLI instead of its HTTP API. OpenCode owns provider authentication, agent definitions, tool execution, and persistent sessions. Using the CLI gives normal OpenCode config resolution and avoids the divergent v1/v2 HTTP APIs. Version compatibility is deliberately narrow until tested.
+The runtime calls the documented OpenCode noninteractive CLI instead of its HTTP API. OpenCode owns provider authentication, agent definitions, tool execution, and persistent sessions. Using the CLI gives normal OpenCode config resolution and avoids the divergent v1/v2 HTTP APIs. Stable 1.x releases from 1.19.4 onward are accepted; the minimum and additional tested versions are exercised in CI.
 
 ## Modules
 
