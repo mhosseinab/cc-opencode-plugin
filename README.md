@@ -1,5 +1,7 @@
 # OpenCode plugin for Claude Code
 
+![Claude Code plans, delegates, and verifies while OpenCode agents build, investigate, and review.](docs/assets/social-preview.jpg)
+
 Let Claude Code coordinate work while your local OpenCode agents implement changes, investigate problems, or review code. Use your existing OpenCode providers, models, credentials, and custom agents.
 
 ## Install
