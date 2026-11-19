@@ -1,3 +1,11 @@
+# [2.0.0](https://github.com/mhosseinab/cc-opencode-plugin/compare/v1.0.2...v2.0.0) (2026-11-19)
+
+- chore!: relicense plugin under GPL-3.0-only ([cf11030](https://github.com/mhosseinab/cc-opencode-plugin/commit/cf11030125db741e26040dd17bbda8783484888e))
+
+### BREAKING CHANGES
+
+- The plugin is now licensed under GPL-3.0-only instead of MIT.
+
 ## [1.0.2](https://github.com/mhosseinab/cc-opencode-plugin/compare/v1.0.1...v1.0.2) (2026-11-12)
 
 ### Bug Fixes

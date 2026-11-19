@@ -10,10 +10,10 @@
         "source": "git-subdir",
         "url": "https://github.com/mhosseinab/cc-opencode-plugin.git",
         "path": "plugins/opencode",
-        "ref": "v1.0.2"
+        "ref": "v2.0.0"
       },
       "description": "Delegate tasks and restricted code reviews to local OpenCode agents",
-      "version": "1.0.2"
+      "version": "2.0.0"
     }
   ],
   "metadata": {
