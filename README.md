@@ -125,3 +125,9 @@ Successful `main` pushes run semantic-release after CI. See [releasing](docs/rel
 Further documentation: [architecture](docs/architecture.md), [runtime and recovery](docs/runtime.md), [compatibility](docs/compatibility.md), [contributing](CONTRIBUTING.md), and [upstream approach](docs/upstream-analysis.md).
 
 Inspired by [OpenAI's Codex plugin](https://github.com/openai/codex-plugin-cc). This project is not affiliated with OpenAI, Anthropic, or OpenCode.
+
+## License
+
+Copyright (c) 2026 cc-opencode contributors.
+
+Licensed under the GNU General Public License version 3 only (`GPL-3.0-only`). See [LICENSE](LICENSE) for the full terms.

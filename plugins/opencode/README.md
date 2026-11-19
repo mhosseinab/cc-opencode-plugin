@@ -45,3 +45,9 @@ Tasks support agent/model/variant selection, background execution, and continuat
 Setup checks the installation and agents; a task verifies provider access. Implementation tasks use your OpenCode permissions. Reviews permit only read/glob/grep tools. Inspect and verify implementation changes before merging.
 
 There is no plugin build step or runtime npm dependency. See [RUNTIME.md](RUNTIME.md) for the full command contract, permissions, limits, and recovery instructions. For development from a repository checkout, use `claude --plugin-dir ./plugins/opencode` from its root.
+
+## License
+
+Copyright (c) 2026 cc-opencode contributors.
+
+Licensed under the GNU General Public License version 3 only (`GPL-3.0-only`). See [LICENSE](LICENSE) for the full terms.

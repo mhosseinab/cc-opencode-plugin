@@ -5,6 +5,6 @@
   "author": {
     "name": "cc-opencode contributors"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "keywords": ["opencode", "delegation", "agents", "review"]
 }

@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "description": "Delegate from Claude Code to local OpenCode agents",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
